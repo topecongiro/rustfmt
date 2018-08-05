@@ -21,7 +21,6 @@ before_script:
 - |
   if [ -z ${INTEGRATION} ]; then
     if [ $TRAVIS_OS_NAME = 'osx' ]; then
-      virtualenv env &&
       source env/bin/activate &&
       python --version &&
       pip install 'travis-cargo<0.2'
