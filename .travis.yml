@@ -15,38 +15,7 @@ addons:
 
 matrix:
   include:
-    - env: DEPLOY=LINUX
-    - env: CFG_RELEASE_CHANNEL=beta
     - os: osx
-    - env: INTEGRATION=bitflags
-    - env: INTEGRATION=cargo
-    - env: INTEGRATION=chalk
-    - env: INTEGRATION=crater
-    - env: INTEGRATION=error-chain
-    - env: INTEGRATION=failure
-    - env: INTEGRATION=futures-rs
-    - env: INTEGRATION=glob
-    - env: INTEGRATION=log
-    - env: INTEGRATION=mdbook
-    - env: INTEGRATION=packed_simd
-    - env: INTEGRATION=rand
-    - env: INTEGRATION=rust-clippy
-    - env: INTEGRATION=rust-semverver
-    - env: INTEGRATION=stdsimd
-    - env: INTEGRATION=tempdir
-  allow_failures:
-    # Needs `edition = "Edition2018"` in rustfmt.toml
-    - env: INTEGRATION=chalk
-    # Fails tests, don't know why
-    - env: INTEGRATION=crater
-    # Doesn't build
-    - env: INTEGRATION=futures-rs
-    # Test failure
-    - env: INTEGRATION=rust-clippy
-    # Build failure
-    - env: INTEGRATION=rust-semverver
-    # See: https://github.com/rust-lang-nursery/rustfmt/issues/2787
-    - env: INTEGRATION=stdsimd
 
 before_script:
 - |
