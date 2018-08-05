@@ -17,19 +17,6 @@ matrix:
   include:
     - os: osx
 
-before_script:
-- |
-  if [ -z ${INTEGRATION} ]; then
-    if [ $TRAVIS_OS_NAME = 'osx' ]; then
-      source env/bin/activate &&
-      python --version &&
-      pip install 'travis-cargo<0.2'
-    else
-      pip install 'travis-cargo<0.2' --user &&
-      export PATH="$(python -m site --user-base)/bin:$PATH"
-    fi
-  fi
-
 script:
   - |
     if [ -z ${INTEGRATION} ]; then
