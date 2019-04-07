@@ -5,6 +5,7 @@
 extern crate proc_macro;
 
 mod attrs;
+mod config;
 mod config_type;
 mod item_enum;
 mod item_struct;
@@ -17,6 +18,19 @@ use syn::parse_macro_input;
 pub fn config_type(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::Item);
     let output = config_type::define_config_type(&input);
+
+    #[cfg(feature = "debug-with-rustfmt")]
+    {
+        utils::debug_with_rustfmt(&output);
+    }
+
+    TokenStream::from(output)
+}
+
+#[proc_macro_attribute]
+pub fn define_config(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::Item);
+    let output = config::define_config(&input);
 
     #[cfg(feature = "debug-with-rustfmt")]
     {
