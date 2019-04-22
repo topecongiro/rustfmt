@@ -77,6 +77,7 @@ pub enum OverflowableItem<'a> {
     StructField(&'a ast::StructField),
     TuplePatField(&'a TuplePatField<'a>),
     Ty(&'a ast::Ty),
+    Arg(&'a ast::Arg),
 }
 
 impl<'a> Rewrite for OverflowableItem<'a> {
@@ -116,6 +117,7 @@ impl<'a> OverflowableItem<'a> {
             OverflowableItem::StructField(sf) => f(*sf),
             OverflowableItem::TuplePatField(pat) => f(*pat),
             OverflowableItem::Ty(ty) => f(*ty),
+            OverflowableItem::Arg(arg) => f(*arg),
         }
     }
 
@@ -237,7 +239,7 @@ macro_rules! impl_into_overflowable_item_for_rustfmt_types {
     }
 }
 
-impl_into_overflowable_item_for_ast_node!(Expr, GenericParam, NestedMetaItem, StructField, Ty);
+impl_into_overflowable_item_for_ast_node!(Expr, GenericParam, NestedMetaItem, StructField, Ty, Arg);
 impl_into_overflowable_item_for_rustfmt_types!([MacroArg], [SegmentParam, TuplePatField]);
 
 pub fn into_overflowable_list<'a, T>(
@@ -320,6 +322,27 @@ pub fn rewrite_with_square_brackets<'a, T: 'a + IntoOverflowableItem<'a>>(
         context.config.width_heuristics().array_width,
         force_separator_tactic,
         Some(("[", "]")),
+    )
+    .rewrite(shape)
+}
+
+pub fn rewrite_with_vertical_bar<'a, T: 'a + IntoOverflowableItem<'a>>(
+    context: &'a RewriteContext<'_>,
+    items: impl Iterator<Item = &'a T>,
+    shape: Shape,
+    span: Span,
+) -> Option<String> {
+    Context::new(
+        context,
+        items,
+        "",
+        shape,
+        span,
+        "|",
+        "|",
+        context.config.max_width(),
+        None,
+        None,
     )
     .rewrite(shape)
 }

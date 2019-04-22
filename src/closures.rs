@@ -7,7 +7,7 @@ use crate::config::Version;
 use crate::expr::{block_contains_comment, is_simple_block, is_unsafe_block, rewrite_cond};
 use crate::items::{span_hi_for_arg, span_lo_for_arg};
 use crate::lists::{definitive_tactic, itemize_list, write_list, ListFormatting, Separator};
-use crate::overflow::OverflowableItem;
+use crate::overflow::{self, OverflowableItem};
 use crate::rewrite::{Rewrite, RewriteContext};
 use crate::shape::Shape;
 use crate::source_map::SpanUtils;
@@ -236,38 +236,9 @@ fn rewrite_closure_fn_decl(
     let argument_offset = nested_shape.indent + 1;
     let arg_shape = nested_shape.offset_left(1)?.visual_indent(0);
     let ret_str = fn_decl.output.rewrite(context, arg_shape)?;
-
-    let arg_items = itemize_list(
-        context.snippet_provider,
-        fn_decl.inputs.iter(),
-        "|",
-        ",",
-        |arg| span_lo_for_arg(arg),
-        |arg| span_hi_for_arg(context, arg),
-        |arg| arg.rewrite(context, arg_shape),
-        context.snippet_provider.span_after(span, "|"),
-        body.span.lo(),
-        false,
-    );
-    let item_vec = arg_items.collect::<Vec<_>>();
-    // 1 = space between arguments and return type.
-    let horizontal_budget = nested_shape.width.saturating_sub(ret_str.len() + 1);
-    let tactic = definitive_tactic(
-        &item_vec,
-        ListTactic::HorizontalVertical,
-        Separator::Comma,
-        horizontal_budget,
-    );
-    let arg_shape = match tactic {
-        DefinitiveListTactic::Horizontal => arg_shape.sub_width(ret_str.len() + 1)?,
-        _ => arg_shape,
-    };
-
-    let fmt = ListFormatting::new(arg_shape, context.config)
-        .tactic(tactic)
-        .preserve_newline(true);
-    let list_str = write_list(&item_vec, &fmt)?;
-    let mut prefix = format!("{}{}{}|{}|", is_async, immovable, mover, list_str);
+    let list_str =
+        overflow::rewrite_with_vertical_bar(context, fn_decl.inputs.iter(), nested_shape, span)?;
+    let mut prefix = format!("{}{}{}{}", is_async, immovable, mover, list_str);
 
     if !ret_str.is_empty() {
         if prefix.contains('\n') {
