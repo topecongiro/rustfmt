@@ -1,7 +1,11 @@
+mod attrs;
+mod item_enum;
+mod item_struct;
+
 use proc_macro2::TokenStream;
 
-use crate::item_enum::define_config_type_on_enum;
-use crate::item_struct::define_config_type_on_struct;
+use item_enum::define_config_type_on_enum;
+use item_struct::define_config_type_on_struct;
 
 /// Defines `config_type` on enum or struct.
 // FIXME: Implement this on struct.

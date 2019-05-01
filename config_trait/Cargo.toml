@@ -1,0 +1,7 @@
+[package]
+name = "config_trait"
+version = "0.1.0"
+authors = ["topecongiro <seuchida@gmail.com>"]
+edition = "2018"
+
+[dependencies]

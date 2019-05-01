@@ -8,9 +8,14 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
+failure = "0.1.5"
+itertools = "0.8"
 proc-macro2 = "0.4"
 quote = "0.6"
+semver = "0.9"
 syn = { version = "0.15", features = ["full", "visit"] }
+
+config_trait = { path = "../config_trait" }
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }

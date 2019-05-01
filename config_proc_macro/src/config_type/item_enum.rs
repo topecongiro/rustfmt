@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::attrs::*;
+use crate::config_type::attrs::*;
 use crate::utils::*;
 
 type Variants = syn::punctuated::Punctuated<syn::Variant, syn::Token![,]>;

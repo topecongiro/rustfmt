@@ -5,9 +5,9 @@ use std::io::{Error, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
+use config_trait::ConfigType;
 use regex::Regex;
 
-use crate::config::config_type::ConfigType;
 pub use crate::config::file_lines::{FileLines, FileName, Range};
 pub use crate::config::lists::*;
 pub use crate::config::options::*;

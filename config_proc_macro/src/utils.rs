@@ -19,6 +19,19 @@ pub fn is_unit(v: &syn::Variant) -> bool {
     }
 }
 
+pub fn ty_to_str(ty: &syn::Type) -> Option<String> {
+    match ty {
+        syn::Type::Path(syn::TypePath {
+            path: syn::Path {
+                segments,
+                ..
+            },
+            ..
+        }) if segments.len() == 1 => segments.first().map(|segment| segment.value().ident.to_string()),
+        _ => None,
+    }
+}
+
 #[cfg(feature = "debug-with-rustfmt")]
 /// Pretty-print the output of proc macro using rustfmt.
 pub fn debug_with_rustfmt(input: &TokenStream) {
