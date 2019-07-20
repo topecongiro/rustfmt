@@ -7,6 +7,7 @@ use syntax::parse::token::DelimToken;
 use syntax::source_map::{BytePos, SourceMap, Span};
 use syntax::{ast, ptr};
 
+use crate::block::Block;
 use crate::chains::rewrite_chain;
 use crate::closures;
 use crate::comment::{
@@ -61,7 +62,7 @@ pub(crate) fn format_expr(
     if contains_skip(&*expr.attrs) {
         return Some(context.snippet(expr.span()).to_owned());
     }
-    let shape = if expr_type == ExprType::Statement && semicolon_for_expr(context, expr) {
+    let shape = if expr_type == ExprType::Statement && semicolon_for_expr(context.config, expr) {
         shape.sub_width(1)?
     } else {
         shape
@@ -137,7 +138,6 @@ pub(crate) fn format_expr(
                             Some(&expr.attrs),
                             opt_label,
                             shape,
-                            true,
                         )
                     }
                 }
@@ -509,7 +509,6 @@ pub(crate) fn rewrite_block_with_visitor(
     attrs: Option<&[ast::Attribute]>,
     label: Option<ast::Label>,
     shape: Shape,
-    has_braces: bool,
 ) -> Option<String> {
     if let rw @ Some(_) = rewrite_empty_block(context, block, attrs, label, prefix, shape) {
         return rw;
@@ -528,8 +527,10 @@ pub(crate) fn rewrite_block_with_visitor(
     }
 
     let inner_attrs = attrs.map(inner_attributes);
+    let inner_attrs = inner_attrs.as_ref().map(Vec::as_slice);
     let label_str = rewrite_label(label);
-    visitor.visit_block(block, inner_attrs.as_ref().map(|a| &**a), has_braces);
+    let block = Block::from_ast_block(block, inner_attrs);
+    visitor.visit_block(&block);
     Some(format!("{}{}{}", prefix, label_str, visitor.buffer))
 }
 
@@ -554,7 +555,7 @@ fn rewrite_block(
         return rw;
     }
 
-    let result = rewrite_block_with_visitor(context, &prefix, block, attrs, label, shape, true);
+    let result = rewrite_block_with_visitor(context, &prefix, block, attrs, label, shape);
     if let Some(ref result_str) = result {
         if result_str.lines().count() <= 3 {
             if let rw @ Some(_) =
@@ -1005,7 +1006,7 @@ impl<'a> Rewrite for ControlFlow<'a> {
         let block_str = {
             let old_val = context.is_if_else_block.replace(self.else_block.is_some());
             let result =
-                rewrite_block_with_visitor(context, "", self.block, None, None, block_shape, true);
+                rewrite_block_with_visitor(context, "", self.block, None, None, block_shape);
             context.is_if_else_block.replace(old_val);
             result?
         };

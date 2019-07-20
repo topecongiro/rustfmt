@@ -86,7 +86,7 @@ impl Rewrite for ast::Stmt {
     }
 }
 
-fn format_stmt(
+pub(crate) fn format_stmt(
     context: &RewriteContext<'_>,
     shape: Shape,
     stmt: &ast::Stmt,
@@ -97,7 +97,7 @@ fn format_stmt(
     let result = match stmt.node {
         ast::StmtKind::Local(ref local) => local.rewrite(context, shape),
         ast::StmtKind::Expr(ref ex) | ast::StmtKind::Semi(ref ex) => {
-            let suffix = if semicolon_for_stmt(context, stmt) {
+            let suffix = if semicolon_for_stmt(context.config, stmt) {
                 ";"
             } else {
                 ""

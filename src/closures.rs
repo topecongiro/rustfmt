@@ -1,5 +1,5 @@
+use syntax::ast;
 use syntax::source_map::Span;
-use syntax::{ast, ptr};
 
 use crate::config::lists::*;
 use crate::config::Version;
@@ -10,7 +10,8 @@ use crate::overflow::OverflowableItem;
 use crate::rewrite::{Rewrite, RewriteContext};
 use crate::shape::Shape;
 use crate::source_map::SpanUtils;
-use crate::utils::{last_line_width, left_most_sub_expr, stmt_expr, NodeIdExt};
+use crate::stmt::Stmt;
+use crate::utils::{last_line_width, left_most_sub_expr, stmt_expr};
 
 // This module is pretty messy because of the rules around closures and blocks:
 // FIXME - the below is probably no longer true in full.
@@ -138,19 +139,20 @@ fn rewrite_closure_with_block(
         return None;
     }
 
-    let block = ast::Block {
-        stmts: vec![ast::Stmt {
-            id: ast::NodeId::root(),
-            node: ast::StmtKind::Expr(ptr::P(body.clone())),
-            span: body.span,
-        }],
-        id: ast::NodeId::root(),
-        rules: ast::BlockCheckMode::Default,
+    let stmt = ast::Stmt {
+        id: ast::NodeId::from_usize(0),
         span: body.span,
+        node: ast::StmtKind::Expr(syntax::ptr::P(body.clone())),
     };
-    let block =
-        crate::expr::rewrite_block_with_visitor(context, "", &block, None, None, shape, false)?;
-    Some(format!("{} {}", prefix, block))
+    let stmt = Stmt::from_ast_node(&stmt, true);
+    let block_shape = Shape::indented(shape.indent.block_indent(context.config), context.config);
+    let body_str = stmt.rewrite(context, block_shape)?;
+    let nested_indent_str = block_shape.to_string_with_newline(context.config);
+    let indent_str = shape.indent.to_string_with_newline(context.config);
+    Some(format!(
+        "{} {{{}{}{}}}",
+        prefix, nested_indent_str, body_str, indent_str
+    ))
 }
 
 // Rewrite closure with a single expression without wrapping its body with block.

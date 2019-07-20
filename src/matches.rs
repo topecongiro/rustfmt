@@ -403,7 +403,7 @@ fn rewrite_match_body(
             let semicolon = if context.config.version() == Version::One {
                 ""
             } else {
-                if semicolon_for_expr(context, body) {
+                if semicolon_for_expr(context.config, body) {
                     ";"
                 } else {
                     ""

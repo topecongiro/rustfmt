@@ -45,6 +45,7 @@ mod utils;
 mod release_channel;
 
 mod attr;
+mod block;
 mod chains;
 mod closures;
 mod comment;
@@ -80,6 +81,7 @@ mod string;
 mod test;
 mod types;
 mod vertical;
+mod visitable;
 pub(crate) mod visitor;
 
 /// The various errors that can occur during formatting. Note that not all of

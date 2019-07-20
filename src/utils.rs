@@ -271,17 +271,17 @@ pub(crate) fn contains_skip(attrs: &[Attribute]) -> bool {
 }
 
 #[inline]
-pub(crate) fn semicolon_for_expr(context: &RewriteContext<'_>, expr: &ast::Expr) -> bool {
+pub(crate) fn semicolon_for_expr(config: &Config, expr: &ast::Expr) -> bool {
     match expr.node {
         ast::ExprKind::Ret(..) | ast::ExprKind::Continue(..) | ast::ExprKind::Break(..) => {
-            context.config.trailing_semicolon()
+            config.trailing_semicolon()
         }
         _ => false,
     }
 }
 
 #[inline]
-pub(crate) fn semicolon_for_stmt(context: &RewriteContext<'_>, stmt: &ast::Stmt) -> bool {
+pub(crate) fn semicolon_for_stmt(config: &Config, stmt: &ast::Stmt) -> bool {
     match stmt.node {
         ast::StmtKind::Semi(ref expr) => match expr.node {
             ast::ExprKind::While(..)
@@ -289,7 +289,7 @@ pub(crate) fn semicolon_for_stmt(context: &RewriteContext<'_>, stmt: &ast::Stmt)
             | ast::ExprKind::Loop(..)
             | ast::ExprKind::ForLoop(..) => false,
             ast::ExprKind::Break(..) | ast::ExprKind::Continue(..) | ast::ExprKind::Ret(..) => {
-                context.config.trailing_semicolon()
+                config.trailing_semicolon()
             }
             _ => true,
         },
