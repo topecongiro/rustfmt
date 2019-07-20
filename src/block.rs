@@ -6,9 +6,10 @@ use syntax::ast;
 use syntax::ptr::P;
 use syntax_pos::{BytePos, Pos, Span};
 
-use crate::comment::{rewrite_comment, CodeCharKind, CommentCodeSlices};
+use crate::comment::{contains_comment, rewrite_comment, CodeCharKind, CommentCodeSlices};
 use crate::coverage::transform_missing_snippet;
 use crate::items::is_use_item;
+use crate::rewrite::RewriteContext;
 use crate::shape::Shape;
 use crate::source_map::LineRangeUtils;
 use crate::spanned::Spanned;
@@ -25,34 +26,60 @@ const BRACE_COMPENSATION: BytePos = BytePos(1);
 pub(crate) struct Block<'a, T> {
     items: &'a [T],
     inner_attrs: Option<&'a [ast::Attribute]>,
+    empty_block_style: EmptyBlockStyle,
     span: Span,
+}
+
+#[derive(Copy, Clone)]
+pub(crate) enum EmptyBlockStyle {
+    /// Allow putting an empty block in a single line.
+    SingleLine,
+    /// Forbid putting an empty block in a single line.
+    MultiLine,
 }
 
 impl<'a> Block<'a, ast::Stmt> {
     pub(crate) fn from_ast_block(
         block: &'a ast::Block,
         inner_attrs: Option<&'a [ast::Attribute]>,
+        empty_block_style: EmptyBlockStyle,
     ) -> Self {
         Block {
             items: block.stmts.as_slice(),
             inner_attrs,
+            empty_block_style,
             span: block.span,
         }
     }
 }
 
 impl<'a> Block<'a, P<ast::Item>> {
-    fn from_ast_module(module: &'a ast::Mod) -> Self {
+    pub(crate) fn from_ast_module(
+        module: &'a ast::Mod,
+        inner_attrs: &'a [ast::Attribute],
+        empty_block_style: EmptyBlockStyle,
+    ) -> Self {
         debug_assert!(module.inline);
         Block {
             items: module.items.as_slice(),
-            inner_attrs: None,
+            inner_attrs: if inner_attrs.is_empty() {
+                None
+            } else {
+                Some(inner_attrs)
+            },
+            empty_block_style,
             span: module.inner,
         }
     }
 }
 
 impl<'b, 'a: 'b> FmtVisitor<'a> {
+    fn is_empty_block<T>(&self, block: &Block<'_, T>) -> bool {
+        block.items.is_empty()
+            && block.inner_attrs.map_or(true, |attrs| attrs.is_empty())
+            && !contains_comment(self.snippet(block.span))
+    }
+
     pub(crate) fn visit_block<T: Visitable>(&mut self, b: &Block<'_, T>) {
         debug!(
             "visit_block: {:?} {:?}",
@@ -63,6 +90,24 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
         self.last_pos = self.last_pos + BRACE_COMPENSATION;
         self.block_indent = self.block_indent.block_indent(self.config);
         self.push_str("{");
+
+        if self.is_empty_block(b) {
+            self.block_indent = self.block_indent.block_unindent(self.config);
+            match b.empty_block_style {
+                EmptyBlockStyle::SingleLine
+                    if last_line_width(&self.buffer) < self.config.max_width() =>
+                {
+                    self.push_str("}");
+                }
+                _ => {
+                    self.push_str(&self.block_indent.to_string_with_newline(self.config));
+                    self.push_str("}");
+                }
+            }
+            self.last_pos = source!(self, b.span).hi();
+            return;
+        }
+
         self.trim_spaces_after_opening_brace(b, b.inner_attrs);
 
         // Format inner attributes if available.
@@ -72,6 +117,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
 
         Visitable::visit_on(self, b.items);
 
+        // TODO: This should be handled within each visit method.
         if let Some(last_item) = b.items.last() {
             if last_item.requires_semicolon(self.config) {
                 self.push_str(";");

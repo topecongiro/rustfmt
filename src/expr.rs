@@ -7,7 +7,7 @@ use syntax::parse::token::DelimToken;
 use syntax::source_map::{BytePos, SourceMap, Span};
 use syntax::{ast, ptr};
 
-use crate::block::Block;
+use crate::block::{Block, EmptyBlockStyle};
 use crate::chains::rewrite_chain;
 use crate::closures;
 use crate::comment::{
@@ -529,7 +529,7 @@ pub(crate) fn rewrite_block_with_visitor(
     let inner_attrs = attrs.map(inner_attributes);
     let inner_attrs = inner_attrs.as_ref().map(Vec::as_slice);
     let label_str = rewrite_label(label);
-    let block = Block::from_ast_block(block, inner_attrs);
+    let block = Block::from_ast_block(block, inner_attrs, EmptyBlockStyle::MultiLine);
     visitor.visit_block(&block);
     Some(format!("{}{}{}", prefix, label_str, visitor.buffer))
 }

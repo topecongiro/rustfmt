@@ -4,7 +4,7 @@ use syntax::ast;
 use syntax::ptr::P;
 
 use crate::spanned::Spanned;
-use crate::utils::{semicolon_for_expr, stmt_expr};
+use crate::utils::{ptr_vec_to_ref_vec, semicolon_for_expr, stmt_expr};
 use crate::visitor::FmtVisitor;
 use crate::Config;
 
@@ -27,10 +27,10 @@ impl Visitable for ast::Stmt {
 
 impl Visitable for P<ast::Item> {
     fn visit_on(visitor: &mut FmtVisitor<'_>, visitables: &[Self]) {
-        unimplemented!()
+        visitor.visit_items_with_reordering(&ptr_vec_to_ref_vec(&visitables));
     }
 
     fn requires_semicolon(&self, _: &Config) -> bool {
-        true
+        false
     }
 }

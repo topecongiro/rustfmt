@@ -5,7 +5,7 @@ use syntax::source_map::{self, BytePos, Pos, SourceMap, Span};
 use syntax::{ast, visit};
 
 use crate::attr::*;
-use crate::block::Block;
+use crate::block::{Block, EmptyBlockStyle};
 use crate::config::{BraceStyle, Config};
 use crate::items::{
     format_impl, format_trait, format_trait_alias, is_mod_decl, rewrite_associated_impl_type,
@@ -183,7 +183,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
             self.format_missing(source!(self, block.span).lo());
         }
 
-        let block = Block::from_ast_block(block, inner_attrs);
+        let block = Block::from_ast_block(block, inner_attrs, EmptyBlockStyle::MultiLine);
         self.visit_block(&block);
     }
 
@@ -607,32 +607,20 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
         // Calling `to_owned()` to work around borrow checker.
         let ident_str = rewrite_ident(&self.get_context(), ident).to_owned();
         self.push_str(&ident_str);
+        self.last_pos = m.inner.lo() - BytePos(1);
 
         if is_internal {
             match self.config.brace_style() {
                 BraceStyle::AlwaysNextLine => {
-                    let indent_str = self.block_indent.to_string_with_newline(self.config);
-                    self.push_str(&indent_str);
-                    self.push_str("{");
+                    self.push_str(&self.block_indent.to_string_with_newline(self.config));
                 }
-                _ => self.push_str(" {"),
+                _ => self.push_str(" "),
             }
-            // Hackery to account for the closing }.
-            let mod_lo = self.snippet_provider.span_after(source!(self, s), "{");
-            let body_snippet =
-                self.snippet(mk_sp(mod_lo, source!(self, m.inner).hi() - BytePos(1)));
-            let body_snippet = body_snippet.trim();
-            if body_snippet.is_empty() {
-                self.push_str("}");
-            } else {
-                self.last_pos = mod_lo;
-                self.block_indent = self.block_indent.block_indent(self.config);
-                self.visit_attrs(attrs, ast::AttrStyle::Inner);
-                self.walk_mod_items(m);
-                let missing_span = self.next_span(m.inner.hi() - BytePos(1));
-                self.close_block(missing_span, false);
-            }
-            self.last_pos = source!(self, m.inner).hi();
+            self.visit_block(&Block::from_ast_module(
+                m,
+                &inner_attributes(attrs),
+                EmptyBlockStyle::SingleLine,
+            ));
         } else {
             self.push_str(";");
             self.last_pos = source!(self, s).hi();

@@ -6,6 +6,7 @@
 
 // FIXME(#2455): Reorder trait items.
 
+use std::borrow::Borrow;
 use std::cmp::{Ord, Ordering};
 
 use syntax::{ast, attr, source_map::Span, symbol::sym};
@@ -78,18 +79,18 @@ fn rewrite_reorderable_item(
 
 /// Rewrite a list of items with reordering. Every item in `items` must have
 /// the same `ast::ItemKind`.
-fn rewrite_reorderable_items(
+fn rewrite_reorderable_items<T: Borrow<ast::Item>>(
     context: &RewriteContext<'_>,
-    reorderable_items: &[&ast::Item],
+    reorderable_items: &[T],
     shape: Shape,
     span: Span,
 ) -> Option<String> {
-    match reorderable_items[0].node {
+    match reorderable_items[0].borrow().node {
         // FIXME: Remove duplicated code.
         ast::ItemKind::Use(..) => {
             let mut normalized_items: Vec<_> = reorderable_items
                 .iter()
-                .filter_map(|item| UseTree::from_ast_with_normalization(context, item))
+                .filter_map(|item| UseTree::from_ast_with_normalization(context, item.borrow()))
                 .collect();
             let cloned = normalized_items.clone();
             // Add comments before merging.
@@ -131,16 +132,16 @@ fn rewrite_reorderable_items(
                 reorderable_items.iter(),
                 "",
                 ";",
-                |item| item.span().lo(),
-                |item| item.span().hi(),
-                |item| rewrite_reorderable_item(context, item, shape),
+                |&item| item.borrow().span().lo(),
+                |&item| item.borrow().span().hi(),
+                |&item| rewrite_reorderable_item(context, item.borrow(), shape),
                 span.lo(),
                 span.hi(),
                 false,
             );
 
             let mut item_pair_vec: Vec<_> = list_items.zip(reorderable_items.iter()).collect();
-            item_pair_vec.sort_by(|a, b| compare_items(a.1, b.1));
+            item_pair_vec.sort_by(|a, b| compare_items(a.1.borrow(), b.1.borrow()));
             let item_vec: Vec<_> = item_pair_vec.into_iter().map(|pair| pair.0).collect();
 
             wrap_reorderable_items(context, &item_vec, shape)
@@ -206,17 +207,18 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
     /// Format items with the same item kind and reorder them. If `in_group` is
     /// `true`, then the items separated by an empty line will not be reordered
     /// together.
-    fn walk_reorderable_items(
+    fn walk_reorderable_items<T: Borrow<ast::Item>>(
         &mut self,
-        items: &[&ast::Item],
+        items: &[T],
         item_kind: ReorderableItemKind,
         in_group: bool,
     ) -> usize {
-        let mut last = self.source_map.lookup_line_range(items[0].span());
+        let mut last = self.source_map.lookup_line_range(items[0].borrow().span());
         let item_length = items
             .iter()
-            .take_while(|ppi| {
-                item_kind.is_same_item_kind(&***ppi)
+            .take_while(|&ppi| {
+                let ppi = ppi.borrow();
+                item_kind.is_same_item_kind(ppi)
                     && (!in_group || {
                         let current = self.source_map.lookup_line_range(ppi.span());
                         let in_same_group = current.lo < last.hi + 2;
@@ -229,17 +231,17 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
 
         let at_least_one_in_file_lines = items
             .iter()
-            .any(|item| !out_of_file_lines_range!(self, item.span));
+            .any(|item| !out_of_file_lines_range!(self, item.borrow().span));
 
         if at_least_one_in_file_lines && !items.is_empty() {
-            let lo = items.first().unwrap().span().lo();
-            let hi = items.last().unwrap().span().hi();
+            let lo = items.first().unwrap().borrow().span().lo();
+            let hi = items.last().unwrap().borrow().span().hi();
             let span = mk_sp(lo, hi);
             let rw = rewrite_reorderable_items(&self.get_context(), items, self.shape(), span);
             self.push_rewrite(span, rw);
         } else {
             for item in items {
-                self.push_rewrite(item.span, None);
+                self.push_rewrite(item.borrow().span, None);
             }
         }
 
@@ -248,12 +250,12 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
 
     /// Visits and format the given items. Items are reordered If they are
     /// consecutive and reorderable.
-    pub(crate) fn visit_items_with_reordering(&mut self, mut items: &[&ast::Item]) {
+    pub(crate) fn visit_items_with_reordering<T: Borrow<ast::Item>>(&mut self, mut items: &[T]) {
         while !items.is_empty() {
             // If the next item is a `use`, `extern crate` or `mod`, then extract it and any
             // subsequent items that have the same item kind to be reordered within
             // `walk_reorderable_items`. Otherwise, just format the next item for output.
-            let item_kind = ReorderableItemKind::from(items[0]);
+            let item_kind = ReorderableItemKind::from(items[0].borrow());
             if item_kind.is_reorderable(self.config) {
                 let visited_items_num =
                     self.walk_reorderable_items(items, item_kind, item_kind.in_group());
@@ -263,7 +265,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                 // Reaching here means items were not reordered. There must be at least
                 // one item left in `items`, so calling `unwrap()` here is safe.
                 let (item, rest) = items.split_first().unwrap();
-                self.visit_item(item);
+                self.visit_item(item.borrow());
                 items = rest;
             }
         }
