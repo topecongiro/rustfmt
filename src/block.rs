@@ -9,7 +9,7 @@ use syntax_pos::{BytePos, Pos, Span};
 use crate::comment::{contains_comment, rewrite_comment, CodeCharKind, CommentCodeSlices};
 use crate::coverage::transform_missing_snippet;
 use crate::items::is_use_item;
-use crate::rewrite::RewriteContext;
+use crate::rewrite::{RewriteContext, Rewrite};
 use crate::shape::Shape;
 use crate::source_map::LineRangeUtils;
 use crate::spanned::Spanned;
@@ -27,6 +27,7 @@ pub(crate) struct Block<'a, T> {
     items: &'a [T],
     inner_attrs: Option<&'a [ast::Attribute]>,
     empty_block_style: EmptyBlockStyle,
+    simple_block_style: SimpleBlockStyle,
     span: Span,
 }
 
@@ -38,16 +39,39 @@ pub(crate) enum EmptyBlockStyle {
     MultiLine,
 }
 
+#[derive(Copy, Clone)]
+pub(crate) enum SimpleBlockStyle {
+    /// Allow putting a block with a single item in a single line.
+    SingleLine,
+    /// Forbid putting a block with a single item in a single line.
+    MultiLine,
+}
+
+impl<'a, T> Block<'a, T>
+where
+    T: Rewrite,
+{
+    pub(crate) fn rewrite_empty_block(&self, context: &RewriteContext<'_>, shape: Shape) -> Option<String> {
+        unimplemented!()
+    }
+
+    pub(crate) fn rewrite_in_single_line(&self, context: &RewriteContext<'_>, shape: Shape) -> Option<String> {
+        unimplemented!()
+    }
+}
+
 impl<'a> Block<'a, ast::Stmt> {
     pub(crate) fn from_ast_block(
         block: &'a ast::Block,
         inner_attrs: Option<&'a [ast::Attribute]>,
         empty_block_style: EmptyBlockStyle,
+        simple_block_style: SimpleBlockStyle,
     ) -> Self {
         Block {
             items: block.stmts.as_slice(),
             inner_attrs,
             empty_block_style,
+            simple_block_style,
             span: block.span,
         }
     }
@@ -58,6 +82,7 @@ impl<'a> Block<'a, P<ast::Item>> {
         module: &'a ast::Mod,
         inner_attrs: &'a [ast::Attribute],
         empty_block_style: EmptyBlockStyle,
+        simple_block_style: SimpleBlockStyle,
         span: Span,
     ) -> Self {
         debug_assert!(module.inline);
@@ -69,6 +94,7 @@ impl<'a> Block<'a, P<ast::Item>> {
                 Some(inner_attrs)
             },
             empty_block_style,
+            simple_block_style,
             span,
         }
     }
@@ -79,6 +105,13 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
         block.items.is_empty()
             && block.inner_attrs.map_or(true, |attrs| attrs.is_empty())
             && !contains_comment(self.snippet(block.span))
+    }
+
+    fn can_be_single_lined<T: Visitable>(&self, block: &Block<'_, T>) -> bool {
+        block.items.len() == 1
+            && block.items.first().as_ref().unwrap().can_be_single_lined()
+            && !contains_comment(self.snippet(block.span))
+            && block.inner_attrs.is_none()
     }
 
     pub(crate) fn visit_block<T: Visitable>(&mut self, b: &Block<'_, T>) {
@@ -95,11 +128,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
         if self.is_empty_block(b) {
             self.block_indent = self.block_indent.block_unindent(self.config);
             match b.empty_block_style {
-                EmptyBlockStyle::SingleLine
-                    if last_line_width(&self.buffer) < self.config.max_width() =>
-                {
-                    self.push_str("}");
-                }
+                EmptyBlockStyle::SingleLine => self.push_str("}"),
                 _ => {
                     self.push_str(&self.block_indent.to_string_with_newline(self.config));
                     self.push_str("}");

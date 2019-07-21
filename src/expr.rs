@@ -7,7 +7,7 @@ use syntax::parse::token::DelimToken;
 use syntax::source_map::{BytePos, SourceMap, Span};
 use syntax::{ast, ptr};
 
-use crate::block::{Block, EmptyBlockStyle};
+use crate::block::{Block, EmptyBlockStyle, SimpleBlockStyle};
 use crate::chains::rewrite_chain;
 use crate::closures;
 use crate::comment::{
@@ -510,10 +510,6 @@ pub(crate) fn rewrite_block_with_visitor(
     label: Option<ast::Label>,
     shape: Shape,
 ) -> Option<String> {
-    if let rw @ Some(_) = rewrite_empty_block(context, block, attrs, label, prefix, shape) {
-        return rw;
-    }
-
     let mut visitor = FmtVisitor::from_context(context);
     visitor.block_indent = shape.indent;
     visitor.is_if_else_block = context.is_if_else_block();
@@ -529,7 +525,18 @@ pub(crate) fn rewrite_block_with_visitor(
     let inner_attrs = attrs.map(inner_attributes);
     let inner_attrs = inner_attrs.as_ref().map(Vec::as_slice);
     let label_str = rewrite_label(label);
-    let block = Block::from_ast_block(block, inner_attrs, EmptyBlockStyle::MultiLine);
+    let total_len = prefix.len() + label_str.len() + 2;
+    let empty_block_style = if context.is_if_else_block() || total_len > shape.width {
+        EmptyBlockStyle::MultiLine
+    } else {
+        EmptyBlockStyle::SingleLine
+    };
+    let block = Block::from_ast_block(
+        block,
+        inner_attrs,
+        empty_block_style,
+        SimpleBlockStyle::SingleLine,
+    );
     visitor.visit_block(&block);
     Some(format!("{}{}{}", prefix, label_str, visitor.buffer))
 }
@@ -556,15 +563,6 @@ fn rewrite_block(
     }
 
     let result = rewrite_block_with_visitor(context, &prefix, block, attrs, label, shape);
-    if let Some(ref result_str) = result {
-        if result_str.lines().count() <= 3 {
-            if let rw @ Some(_) =
-                rewrite_single_line_block(context, &prefix, block, attrs, label, shape)
-            {
-                return rw;
-            }
-        }
-    }
 
     result
 }

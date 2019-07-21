@@ -5,7 +5,7 @@ use syntax::source_map::{self, BytePos, Pos, SourceMap, Span};
 use syntax::{ast, visit};
 
 use crate::attr::*;
-use crate::block::{Block, EmptyBlockStyle};
+use crate::block::{Block, EmptyBlockStyle, SimpleBlockStyle};
 use crate::config::{BraceStyle, Config};
 use crate::items::{
     format_impl, format_trait, format_trait_alias, is_mod_decl, rewrite_associated_impl_type,
@@ -183,7 +183,17 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
             self.format_missing(source!(self, block.span).lo());
         }
 
-        let block = Block::from_ast_block(block, inner_attrs, EmptyBlockStyle::MultiLine);
+        let simple_block_style = if self.config.fn_single_line() {
+            SimpleBlockStyle::SingleLine
+        } else {
+            SimpleBlockStyle::MultiLine
+        };
+        let block = Block::from_ast_block(
+            block,
+            inner_attrs,
+            EmptyBlockStyle::MultiLine,
+            simple_block_style,
+        );
         self.visit_block(&block);
     }
 
@@ -621,6 +631,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                 m,
                 &inner_attributes(attrs),
                 EmptyBlockStyle::SingleLine,
+                SimpleBlockStyle::MultiLine,
                 block_span,
             ));
         } else {

@@ -3,6 +3,7 @@
 use syntax::ast;
 use syntax::ptr::P;
 
+use crate::expr::stmt_is_expr;
 use crate::spanned::Spanned;
 use crate::utils::{ptr_vec_to_ref_vec, semicolon_for_expr, stmt_expr};
 use crate::visitor::FmtVisitor;
@@ -13,6 +14,7 @@ use crate::Config;
 pub(crate) trait Visitable: Sized + Spanned {
     fn visit_on(visitor: &mut FmtVisitor<'_>, visitables: &[Self]);
     fn requires_semicolon(&self, config: &Config) -> bool;
+    fn can_be_single_lined(&self) -> bool;
 }
 
 impl Visitable for ast::Stmt {
@@ -23,6 +25,10 @@ impl Visitable for ast::Stmt {
     fn requires_semicolon(&self, config: &Config) -> bool {
         stmt_expr(self).map_or(false, |expr| semicolon_for_expr(config, expr))
     }
+
+    fn can_be_single_lined(&self) -> bool {
+        stmt_is_expr(self)
+    }
 }
 
 impl Visitable for P<ast::Item> {
@@ -31,6 +37,10 @@ impl Visitable for P<ast::Item> {
     }
 
     fn requires_semicolon(&self, _: &Config) -> bool {
+        false
+    }
+
+    fn can_be_single_lined(&self) -> bool {
         false
     }
 }
