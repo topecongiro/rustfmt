@@ -58,6 +58,7 @@ impl<'a> Block<'a, P<ast::Item>> {
         module: &'a ast::Mod,
         inner_attrs: &'a [ast::Attribute],
         empty_block_style: EmptyBlockStyle,
+        span: Span,
     ) -> Self {
         debug_assert!(module.inline);
         Block {
@@ -68,7 +69,7 @@ impl<'a> Block<'a, P<ast::Item>> {
                 Some(inner_attrs)
             },
             empty_block_style,
-            span: module.inner,
+            span,
         }
     }
 }

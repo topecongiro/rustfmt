@@ -607,9 +607,10 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
         // Calling `to_owned()` to work around borrow checker.
         let ident_str = rewrite_ident(&self.get_context(), ident).to_owned();
         self.push_str(&ident_str);
-        self.last_pos = m.inner.lo() - BytePos(1);
 
         if is_internal {
+            let block_span = mk_sp(self.snippet_provider.span_before(s, "{"), m.inner.hi());
+            self.last_pos = block_span.lo();
             match self.config.brace_style() {
                 BraceStyle::AlwaysNextLine => {
                     self.push_str(&self.block_indent.to_string_with_newline(self.config));
@@ -620,6 +621,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                 m,
                 &inner_attributes(attrs),
                 EmptyBlockStyle::SingleLine,
+                block_span,
             ));
         } else {
             self.push_str(";");
