@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use env_logger;
 use getopts::{Matches, Options};
-use rustfmt_nightly as rustfmt;
+use rustfmt_lib as rustfmt;
 
 use crate::rustfmt::{load_config, CliOptions, FormatReportFormatterBuilder, Input, Session};
 

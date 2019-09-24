@@ -5,7 +5,7 @@ use std::io::{self, BufRead, BufReader, Read, Write};
 use std::iter::Peekable;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::str::Chars;
 use std::thread;
 
@@ -328,14 +328,14 @@ fn self_tests() {
     let mut files = get_test_files(Path::new("tests"), false);
     let bin_directories = vec!["cargo-fmt", "git-rustfmt", "bin", "format-diff"];
     for dir in bin_directories {
-        let mut path = PathBuf::from("src");
+        let mut path = PathBuf::from("../src");
         path.push(dir);
         path.push("main.rs");
         files.push(path);
     }
     files.push(PathBuf::from("src/lib.rs"));
 
-    let (reports, count, fails) = check_files(files, &Some(PathBuf::from("rustfmt.toml")));
+    let (reports, count, fails) = check_files(files, &Some(PathBuf::from("../rustfmt.toml")));
     let mut warnings = 0;
 
     // Display results.
@@ -409,34 +409,6 @@ fn stdin_works_with_modified_lines() {
         assert_eq!(session.errors, errors);
     }
     assert_eq!(buf, output.as_bytes());
-}
-
-#[test]
-fn stdin_disable_all_formatting_test() {
-    match option_env!("CFG_RELEASE_CHANNEL") {
-        None | Some("nightly") => {}
-        // These tests require nightly.
-        _ => return,
-    }
-    let input = String::from("fn main() { println!(\"This should not be formatted.\"); }");
-    let mut child = Command::new(rustfmt().to_str().unwrap())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .arg("--config-path=./tests/config/disable_all_formatting.toml")
-        .spawn()
-        .expect("failed to execute child");
-
-    {
-        let stdin = child.stdin.as_mut().expect("failed to get stdin");
-        stdin
-            .write_all(input.as_bytes())
-            .expect("failed to write stdin");
-    }
-
-    let output = child.wait_with_output().expect("failed to wait on child");
-    assert!(output.status.success());
-    assert!(output.stderr.is_empty());
-    assert_eq!(input, String::from_utf8(output.stdout).unwrap());
 }
 
 #[test]
@@ -829,15 +801,4 @@ fn rustfmt() -> PathBuf {
         }
     );
     me
-}
-
-#[test]
-fn verify_check_works() {
-    let temp_file = make_temp_file("temp_check.rs");
-
-    Command::new(rustfmt().to_str().unwrap())
-        .arg("--check")
-        .arg(temp_file.path.to_str().unwrap())
-        .status()
-        .expect("run with check option failed");
 }

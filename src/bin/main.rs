@@ -2,7 +2,7 @@ use env_logger;
 use failure::{err_msg, format_err, Error as FailureError, Fail};
 use io::Error as IoError;
 
-use rustfmt_nightly as rustfmt;
+use rustfmt_lib as rustfmt;
 
 use std::collections::HashMap;
 use std::env;
