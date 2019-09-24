@@ -30,6 +30,7 @@ path = "src/git-rustfmt/main.rs"
 [features]
 default = ["cargo-fmt", "rustfmt-format-diff"]
 cargo-fmt = []
+generic-smid = ["rustfmt-lib/generic-simd"]
 rustfmt-format-diff = ["regex", "serde", "serde_json"]
 
 [dependencies]
