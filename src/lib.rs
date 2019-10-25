@@ -331,7 +331,7 @@ fn format_code_block(code_snippet: &str, config: &Config) -> Option<FormattedSni
             }
             result.push_str(&line);
             result.push('\n');
-            need_indent = indent_next_line(kind, &line, config);
+            need_indent = indent_next_line(kind);
         }
         result.push('}');
         result
@@ -392,7 +392,7 @@ fn format_code_block(code_snippet: &str, config: &Config) -> Option<FormattedSni
             line
         };
         result.push_str(trimmed_line);
-        is_indented = indent_next_line(kind, line, config);
+        is_indented = indent_next_line(kind);
     }
     Some(FormattedSnippet {
         snippet: result,

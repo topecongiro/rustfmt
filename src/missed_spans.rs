@@ -3,7 +3,6 @@ use syntax::source_map::{BytePos, Pos, Span};
 use crate::comment::{is_last_comment_block, rewrite_comment, CodeCharKind, CommentCodeSlices};
 use crate::config::file_lines::FileLines;
 use crate::config::FileName;
-use crate::config::Version;
 use crate::coverage::transform_missing_snippet;
 use crate::shape::{Indent, Shape};
 use crate::source_map::LineRangeUtils;

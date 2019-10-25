@@ -6,7 +6,6 @@ use syntax::{ast, visit};
 
 use crate::attr::*;
 use crate::comment::{rewrite_comment, CodeCharKind, CommentCodeSlices};
-use crate::config::Version;
 use crate::config::{BraceStyle, Config};
 use crate::coverage::transform_missing_snippet;
 use crate::items::{
@@ -24,7 +23,7 @@ use crate::spanned::Spanned;
 use crate::stmt::Stmt;
 use crate::syntux::session::ParseSess;
 use crate::utils::{
-    self, contains_skip, count_newlines, depr_skip_annotation, inner_attributes, last_line_width,
+    self, contains_skip, count_newlines, depr_skip_annotation, inner_attributes,
     mk_sp, ptr_vec_to_ref_vec, rewrite_ident, stmt_expr,
 };
 use crate::{ErrorKind, FormatReport, FormattingError};
@@ -238,8 +237,6 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
 
         let mut last_hi = span.lo();
         let mut unindented = false;
-        let mut prev_ends_with_newline = false;
-        let mut extra_newline = false;
 
         let skip_normal = |s: &str| {
             let trimmed = s.trim();
@@ -259,9 +256,9 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                     }
                     let span_in_between = mk_sp(last_hi, span.lo() + BytePos::from_usize(offset));
                     let snippet_in_between = self.snippet(span_in_between);
-                    let mut comment_on_same_line = !snippet_in_between.contains("\n");
+                    let comment_on_same_line = !snippet_in_between.contains("\n");
 
-                    let mut comment_shape =
+                    let comment_shape =
                         Shape::indented(self.block_indent, config).comment(config);
                     if comment_on_same_line {
                         self.push_str(" ");
@@ -298,7 +295,6 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                     }
                 }
                 CodeCharKind::Normal if skip_normal(&sub_slice) => {
-                    extra_newline = prev_ends_with_newline && sub_slice.contains('\n');
                     continue;
                 }
                 CodeCharKind::Normal => {
@@ -306,8 +302,6 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                     self.push_str(sub_slice.trim());
                 }
             }
-            prev_ends_with_newline = sub_slice.ends_with('\n');
-            extra_newline = false;
             last_hi = span.lo() + BytePos::from_usize(offset + sub_slice.len());
         }
         if unindented {
