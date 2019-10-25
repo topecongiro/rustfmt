@@ -23,8 +23,8 @@ use crate::spanned::Spanned;
 use crate::stmt::Stmt;
 use crate::syntux::session::ParseSess;
 use crate::utils::{
-    self, contains_skip, count_newlines, depr_skip_annotation, inner_attributes,
-    mk_sp, ptr_vec_to_ref_vec, rewrite_ident, stmt_expr,
+    self, contains_skip, count_newlines, depr_skip_annotation, inner_attributes, mk_sp,
+    ptr_vec_to_ref_vec, rewrite_ident, stmt_expr,
 };
 use crate::{ErrorKind, FormatReport, FormattingError};
 
@@ -258,8 +258,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                     let snippet_in_between = self.snippet(span_in_between);
                     let comment_on_same_line = !snippet_in_between.contains("\n");
 
-                    let comment_shape =
-                        Shape::indented(self.block_indent, config).comment(config);
+                    let comment_shape = Shape::indented(self.block_indent, config).comment(config);
                     if comment_on_same_line {
                         self.push_str(" ");
                         // put the first line of the comment on the same line as the

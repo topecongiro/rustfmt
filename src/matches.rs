@@ -396,12 +396,11 @@ fn rewrite_match_body(
                 } else {
                     ""
                 };
-                let semicolon =
-                    if semicolon_for_expr(context, body) {
-                        ";"
-                    } else {
-                        ""
-                    };
+                let semicolon = if semicolon_for_expr(context, body) {
+                    ";"
+                } else {
+                    ""
+                };
                 ("{", format!("{}{}}}{}", semicolon, indent_str, comma))
             } else {
                 ("", String::from(","))
