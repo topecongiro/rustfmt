@@ -243,7 +243,7 @@ impl<'a> FmtVisitor<'a> {
             let indent_str = self.block_indent.to_string(self.config);
             self.push_str(&indent_str);
             self.block_indent
-        } else if self.config.version() == Version::Two && !snippet.starts_with('\n') {
+        } else if !snippet.starts_with('\n') {
             // The comment appears on the same line as the previous formatted code.
             // Assuming that comment is logically associated with that code, we want to keep it on
             // the same level and avoid mixing it with possible other comment.

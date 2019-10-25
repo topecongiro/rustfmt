@@ -263,7 +263,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
 
                     let mut comment_shape =
                         Shape::indented(self.block_indent, config).comment(config);
-                    if self.config.version() == Version::Two && comment_on_same_line {
+                    if comment_on_same_line {
                         self.push_str(" ");
                         // put the first line of the comment on the same line as the
                         // block's last line
@@ -290,28 +290,6 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                             }
                         }
                     } else {
-                        if comment_on_same_line {
-                            // 1 = a space before `//`
-                            let offset_len = 1 + last_line_width(&self.buffer)
-                                .saturating_sub(self.block_indent.width());
-                            match comment_shape
-                                .visual_indent(offset_len)
-                                .sub_width(offset_len)
-                            {
-                                Some(shp) => comment_shape = shp,
-                                None => comment_on_same_line = false,
-                            }
-                        };
-
-                        if comment_on_same_line {
-                            self.push_str(" ");
-                        } else {
-                            if count_newlines(snippet_in_between) >= 2 || extra_newline {
-                                self.push_str("\n");
-                            }
-                            self.push_str(&self.block_indent.to_string_with_newline(config));
-                        }
-
                         let comment_str = rewrite_comment(&sub_slice, false, comment_shape, config);
                         match comment_str {
                             Some(ref s) => self.push_str(s),
