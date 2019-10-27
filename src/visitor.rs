@@ -22,10 +22,7 @@ use crate::source_map::{LineRangeUtils, SpanUtils};
 use crate::spanned::Spanned;
 use crate::stmt::Stmt;
 use crate::syntux::session::ParseSess;
-use crate::utils::{
-    self, contains_skip, count_newlines, depr_skip_annotation, inner_attributes, mk_sp,
-    ptr_vec_to_ref_vec, rewrite_ident, stmt_expr,
-};
+use crate::utils::{self, contains_skip, count_newlines, depr_skip_annotation, inner_attributes, mk_sp, ptr_vec_to_ref_vec, rewrite_ident, stmt_expr, last_line_width};
 use crate::{ErrorKind, FormatReport, FormattingError};
 
 /// Creates a string slice corresponding to the specified span.
@@ -256,10 +253,10 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                     }
                     let span_in_between = mk_sp(last_hi, span.lo() + BytePos::from_usize(offset));
                     let snippet_in_between = self.snippet(span_in_between);
-                    let comment_on_same_line = !snippet_in_between.contains("\n");
+                    let newline_count = count_newlines(snippet_in_between);
 
                     let comment_shape = Shape::indented(self.block_indent, config).comment(config);
-                    if comment_on_same_line {
+                    if newline_count == 0 {
                         self.push_str(" ");
                         // put the first line of the comment on the same line as the
                         // block's last line
@@ -271,9 +268,10 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                                 self.push_str(&sub_slice[..offset]);
                             }
                             Some(offset) => {
+                                let comment_shape = Shape::visual_offset(last_line_width(&self.buffer), self.config).comment(self.config);
                                 let first_line = &sub_slice[..offset];
                                 self.push_str(first_line);
-                                self.push_str(&self.block_indent.to_string_with_newline(config));
+                                self.push_str(&comment_shape.to_string_with_newline(config));
 
                                 // put the other lines below it, shaping it as needed
                                 let other_lines = &sub_slice[offset + 1..];
@@ -286,6 +284,12 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
                             }
                         }
                     } else {
+                        if newline_count == 1 {
+                            self.push_str(&self.block_indent.to_string_with_newline(self.config));
+                        } else {
+                            self.push_str("\n");
+                            self.push_str(&self.block_indent.to_string_with_newline(self.config));
+                        }
                         let comment_str = rewrite_comment(&sub_slice, false, comment_shape, config);
                         match comment_str {
                             Some(ref s) => self.push_str(s),
