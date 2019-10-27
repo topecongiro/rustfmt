@@ -173,11 +173,17 @@ impl Shape {
         }
     }
 
+    pub(crate) fn with_width(self, width: usize) -> Shape {
+        Shape {
+            width, ..self
+        }
+    }
+
     pub(crate) fn visual_offset(offset: usize, config: &Config) -> Shape {
         Shape {
             width: config.max_width().saturating_sub(offset),
-            indent: Indent::new(0, offset),
-            offset,
+            indent: Indent::from_width(config, offset),
+            offset: 0,
         }
     }
 

@@ -235,30 +235,30 @@ impl<'a> FmtVisitor<'a> {
         let fix_indent = last_char.map_or(true, |rev_c| ['{', '\n'].contains(&rev_c));
         let mut on_same_line = false;
 
-        let comment_indent = if fix_indent {
+        let comment_width = ::std::cmp::min(
+            self.config.comment_width(),
+            self.config.max_width() - self.block_indent.width(),
+        );
+
+        let comment_shape = if fix_indent {
             if let Some('{') = last_char {
                 self.push_str("\n");
             }
             let indent_str = self.block_indent.to_string(self.config);
             self.push_str(&indent_str);
-            self.block_indent
+            Shape::legacy(comment_width, self.block_indent)
         } else if !snippet.starts_with('\n') {
             // The comment appears on the same line as the previous formatted code.
             // Assuming that comment is logically associated with that code, we want to keep it on
             // the same level and avoid mixing it with possible other comment.
             on_same_line = true;
             self.push_str(" ");
-            self.block_indent
+            Shape::visual_offset(last_line_width(&self.buffer), self.config)
+                .with_width(comment_width)
         } else {
             self.push_str(" ");
-            Indent::from_width(self.config, last_line_width(&self.buffer))
+            Shape::legacy(comment_width, Indent::from_width(self.config, last_line_width(&self.buffer)))
         };
-
-        let comment_width = ::std::cmp::min(
-            self.config.comment_width(),
-            self.config.max_width() - self.block_indent.width(),
-        );
-        let comment_shape = Shape::legacy(comment_width, comment_indent);
 
         if on_same_line {
             match subslice.find("\n") {
@@ -273,7 +273,7 @@ impl<'a> FmtVisitor<'a> {
                     // with the other lines.
                     let first_line = &subslice[..offset];
                     self.push_str(first_line);
-                    self.push_str(&comment_indent.to_string_with_newline(self.config));
+                    self.push_str(&comment_shape.to_string_with_newline(self.config));
 
                     let other_lines = &subslice[offset + 1..];
                     let comment_str =
