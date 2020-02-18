@@ -1,7 +1,7 @@
 use std::iter::ExactSizeIterator;
 use std::ops::Deref;
 
-use rustc_span::{symbol::kw, BytePos, Span};
+use rustc_span::{symbol::kw, Span};
 use syntax::ast::{self, FunctionRetTy, Mutability};
 
 use crate::config::lists::*;
@@ -41,15 +41,7 @@ pub(crate) fn rewrite_unqualified_path(
         String::new()
     };
 
-    rewrite_path_segments(
-        path_context,
-        result,
-        path.segments.iter(),
-        path.span.lo(),
-        path.span.hi(),
-        context,
-        shape,
-    )
+    rewrite_path_segments(path_context, result, path.segments.iter(), context, shape)
 }
 
 fn rewrite_qualified_path(
@@ -77,8 +69,6 @@ fn rewrite_qualified_path(
             PathContext::Type,
             result,
             path.segments.iter().take(skip_count),
-            path.span.lo(),
-            path.span.hi(),
             context,
             shape,
         )?;
@@ -86,13 +76,10 @@ fn rewrite_qualified_path(
 
     result.push_str(">::");
 
-    let span_lo = qself.ty.span.hi() + BytePos(1);
     rewrite_path_segments(
         path_context,
         result,
         path.segments.iter().skip(skip_count),
-        span_lo,
-        path.span.hi(),
         context,
         shape,
     )
@@ -117,8 +104,6 @@ fn rewrite_path_segments<'a, I>(
     path_context: PathContext,
     mut buffer: String,
     iter: I,
-    mut span_lo: BytePos,
-    span_hi: BytePos,
     context: &RewriteContext<'_>,
     shape: Shape,
 ) -> Option<String>
@@ -141,14 +126,7 @@ where
 
         let extra_offset = extra_offset(&buffer, shape);
         let new_shape = shape.shrink_left(extra_offset)?;
-        let segment_string = rewrite_segment(
-            path_context,
-            segment,
-            &mut span_lo,
-            span_hi,
-            context,
-            new_shape,
-        )?;
+        let segment_string = rewrite_segment(path_context, segment, context, new_shape)?;
 
         buffer.push_str(&segment_string);
     }
@@ -228,21 +206,10 @@ impl Rewrite for ast::AssocTyConstraintKind {
     }
 }
 
-// Formats a path segment. There are some hacks involved to correctly determine
-// the segment's associated span since it's not part of the AST.
-//
-// The span_lo is assumed to be greater than the end of any previous segment's
-// parameters and lesser or equal than the start of current segment.
-//
-// span_hi is assumed equal to the end of the entire path.
-//
-// When the segment contains a positive number of parameters, we update span_lo
-// so that invariants described above will hold for the next segment.
+// Formats a path segment.
 fn rewrite_segment(
     path_context: PathContext,
     segment: &ast::PathSegment,
-    span_lo: &mut BytePos,
-    span_hi: BytePos,
     context: &RewriteContext<'_>,
     shape: Shape,
 ) -> Option<String> {
@@ -288,13 +255,8 @@ fn rewrite_segment(
                     "",
                     param_list.iter(),
                     shape,
-                    mk_sp(*span_lo, span_hi),
+                    data.span,
                 )?;
-
-                // Update position of last bracket.
-                *span_lo = context
-                    .snippet_provider
-                    .span_after(mk_sp(*span_lo, span_hi), "<");
 
                 result.push_str(&generics_str)
             }
