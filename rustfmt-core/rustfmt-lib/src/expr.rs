@@ -27,7 +27,7 @@ use crate::shape::{Indent, Shape};
 use crate::source_map::{LineRangeUtils, SpanUtils};
 use crate::spanned::Spanned;
 use crate::string::{rewrite_string, StringFormat};
-use crate::types::{rewrite_path, PathContext};
+use crate::types::{rewrite_path, rewrite_unqualified_path, PathContext};
 use crate::utils::{
     colon_spaces, contains_skip, count_newlines, first_line_ends_with, inner_attributes,
     last_line_extendable, last_line_width, mk_sp, outer_attributes, semicolon_for_expr,
@@ -1568,7 +1568,7 @@ fn rewrite_struct_lit<'a>(
 
     // 2 = " {".len()
     let path_shape = shape.sub_width(2)?;
-    let path_str = rewrite_path(context, PathContext::Expr, None, path, path_shape)?;
+    let path_str = rewrite_unqualified_path(context, PathContext::Expr, path, path_shape)?;
 
     if fields.is_empty() && base.is_none() {
         return Some(format!("{} {{}}", path_str));

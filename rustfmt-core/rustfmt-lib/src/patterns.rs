@@ -16,7 +16,7 @@ use crate::rewrite::{Rewrite, RewriteContext};
 use crate::shape::Shape;
 use crate::source_map::SpanUtils;
 use crate::spanned::Spanned;
-use crate::types::{rewrite_path, PathContext};
+use crate::types::{rewrite_path, rewrite_unqualified_path, PathContext};
 use crate::utils::{format_mutability, mk_sp, rewrite_ident};
 
 /// Returns `true` if the given pattern is "short".
@@ -227,7 +227,7 @@ impl Rewrite for Pat {
                 rewrite_path(context, PathContext::Expr, q_self.as_ref(), path, shape)
             }
             PatKind::TupleStruct(ref path, ref pat_vec) => {
-                let path_str = rewrite_path(context, PathContext::Expr, None, path, shape)?;
+                let path_str = rewrite_unqualified_path(context, PathContext::Expr, path, shape)?;
                 rewrite_tuple_pat(pat_vec, Some(path_str), self.span, context, shape)
             }
             PatKind::Lit(ref expr) => expr.rewrite(context, shape),
@@ -265,7 +265,7 @@ fn rewrite_struct_pat(
 ) -> Option<String> {
     // 2 =  ` {`
     let path_shape = shape.sub_width(2)?;
-    let path_str = rewrite_path(context, PathContext::Expr, None, path, path_shape)?;
+    let path_str = rewrite_unqualified_path(context, PathContext::Expr, path, path_shape)?;
 
     if fields.is_empty() && !ellipsis {
         return Some(format!("{} {{}}", path_str));

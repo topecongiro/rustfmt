@@ -29,54 +29,64 @@ pub(crate) enum PathContext {
     Import,
 }
 
-// Does not wrap on simple segments.
-pub(crate) fn rewrite_path(
+pub(crate) fn rewrite_unqualified_path(
     context: &RewriteContext<'_>,
     path_context: PathContext,
-    qself: Option<&ast::QSelf>,
     path: &ast::Path,
     shape: Shape,
 ) -> Option<String> {
-    let skip_count = qself.map_or(0, |x| x.position);
-
-    let mut result = if path.is_global() && qself.is_none() && path_context != PathContext::Import {
+    let result = if path.is_global() && path_context != PathContext::Import {
         "::".to_owned()
     } else {
         String::new()
     };
 
-    let mut span_lo = path.span.lo();
+    rewrite_path_segments(
+        path_context,
+        result,
+        path.segments.iter(),
+        path.span.lo(),
+        path.span.hi(),
+        context,
+        shape,
+    )
+}
 
-    if let Some(qself) = qself {
-        result.push('<');
+fn rewrite_qualified_path(
+    context: &RewriteContext<'_>,
+    path_context: PathContext,
+    qself: &ast::QSelf,
+    path: &ast::Path,
+    shape: Shape,
+) -> Option<String> {
+    let skip_count = qself.position;
+    let mut result = String::new();
+    result.push('<');
+    result.push_str(&qself.ty.rewrite(context, shape)?);
 
-        let fmt_ty = qself.ty.rewrite(context, shape)?;
-        result.push_str(&fmt_ty);
-
-        if skip_count > 0 {
-            result.push_str(" as ");
-            if path.is_global() && path_context != PathContext::Import {
-                result.push_str("::");
-            }
-
-            // 3 = ">::".len()
-            let shape = shape.sub_width(3)?;
-
-            result = rewrite_path_segments(
-                PathContext::Type,
-                result,
-                path.segments.iter().take(skip_count),
-                span_lo,
-                path.span.hi(),
-                context,
-                shape,
-            )?;
+    if skip_count > 0 {
+        result.push_str(" as ");
+        if path.is_global() && path_context != PathContext::Import {
+            result.push_str("::");
         }
 
-        result.push_str(">::");
-        span_lo = qself.ty.span.hi() + BytePos(1);
+        // 3 = ">::".len()
+        let shape = shape.sub_width(3)?;
+
+        result = rewrite_path_segments(
+            PathContext::Type,
+            result,
+            path.segments.iter().take(skip_count),
+            path.span.lo(),
+            path.span.hi(),
+            context,
+            shape,
+        )?;
     }
 
+    result.push_str(">::");
+
+    let span_lo = qself.ty.span.hi() + BytePos(1);
     rewrite_path_segments(
         path_context,
         result,
@@ -86,6 +96,21 @@ pub(crate) fn rewrite_path(
         context,
         shape,
     )
+}
+
+// Does not wrap on simple segments.
+pub(crate) fn rewrite_path(
+    context: &RewriteContext<'_>,
+    path_context: PathContext,
+    qself: Option<&ast::QSelf>,
+    path: &ast::Path,
+    shape: Shape,
+) -> Option<String> {
+    if let Some(ref qself) = qself {
+        rewrite_qualified_path(context, path_context, qself, path, shape)
+    } else {
+        rewrite_unqualified_path(context, path_context, path, shape)
+    }
 }
 
 fn rewrite_path_segments<'a, I>(
@@ -608,7 +633,7 @@ impl Rewrite for ast::PolyTraitRef {
 
 impl Rewrite for ast::TraitRef {
     fn rewrite(&self, context: &RewriteContext<'_>, shape: Shape) -> Option<String> {
-        rewrite_path(context, PathContext::Type, None, &self.path, shape)
+        rewrite_unqualified_path(context, PathContext::Type, &self.path, shape)
     }
 }
 
