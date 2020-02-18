@@ -366,12 +366,12 @@ impl<'a> FmtVisitor<'a> {
         ident: ast::Ident,
         fn_sig: &FnSig<'_>,
         span: Span,
-    ) -> Option<(String, FnBraceStyle)> {
+    ) -> (String, FnBraceStyle) {
         let context = self.get_context();
 
         let mut fn_brace_style = newline_for_brace(self.config, &fn_sig.generics.where_clause);
         let (result, force_newline_brace) =
-            rewrite_fn_base(&context, indent, ident, fn_sig, span, fn_brace_style)?;
+            rewrite_fn_base(&context, indent, ident, fn_sig, span, fn_brace_style);
 
         // 2 = ` {`
         if self.config.brace_style() == BraceStyle::AlwaysNextLine
@@ -381,7 +381,7 @@ impl<'a> FmtVisitor<'a> {
             fn_brace_style = FnBraceStyle::NextLine
         }
 
-        Some((result, fn_brace_style))
+        (result, fn_brace_style)
     }
 
     pub(crate) fn rewrite_required_fn(
@@ -403,7 +403,7 @@ impl<'a> FmtVisitor<'a> {
             &FnSig::from_method_sig(sig, generics),
             span,
             FnBraceStyle::None,
-        )?;
+        );
 
         // Re-attach semicolon
         result.push(';');
@@ -2203,7 +2203,7 @@ fn rewrite_fn_base(
     fn_sig: &FnSig<'_>,
     span: Span,
     fn_brace_style: FnBraceStyle,
-) -> Option<(String, bool)> {
+) -> (String, bool) {
     let mut force_new_line_for_brace = false;
 
     let where_clause = &fn_sig.generics.where_clause;
@@ -2235,7 +2235,7 @@ fn rewrite_fn_base(
         rewrite_ident(context, ident),
         fn_sig.generics,
         shape,
-    )?;
+    ).unwrap_or(context.snippet(fn_sig.generics.span).to_owned());
     result.push_str(&generics_str);
 
     let snuggle_angle_bracket = generics_str
@@ -2247,7 +2247,8 @@ fn rewrite_fn_base(
     // return type later anyway.
     let ret_str = fd
         .output
-        .rewrite(context, Shape::indented(indent, context.config))?;
+        .rewrite(context, Shape::indented(indent, context.config))
+        .unwrap_or(context.snippet(fd.output.span()).to_owned());
 
     let multi_line_ret_str = ret_str.contains('\n');
     let ret_str_len = if multi_line_ret_str { 0 } else { ret_str.len() };
@@ -2260,7 +2261,7 @@ fn rewrite_fn_base(
         ret_str_len,
         fn_brace_style,
         multi_line_ret_str,
-    )?;
+    );
 
     debug!(
         "rewrite_fn_base: one_line_budget: {}, multi_line_budget: {}, param_indent: {:?}",
@@ -2308,7 +2309,7 @@ fn rewrite_fn_base(
         param_indent,
         params_span,
         fd.c_variadic(),
-    )?;
+    ).unwrap_or(context.snippet(params_span).to_string());
 
     let put_params_in_block = match context.config.indent_style() {
         IndentStyle::Block => param_str.contains('\n') || param_str.len() > one_line_budget,
@@ -2418,7 +2419,8 @@ fn rewrite_fn_base(
         if multi_line_ret_str || ret_should_indent {
             // Now that we know the proper indent and width, we need to
             // re-layout the return type.
-            let ret_str = fd.output.rewrite(context, ret_shape)?;
+            let ret_str = fd.output.rewrite(context, ret_shape)
+                .unwrap_or(context.snippet(fd.output.span()).to_string());
             result.push_str(&ret_str);
         } else {
             result.push_str(&ret_str);
@@ -2477,7 +2479,7 @@ fn rewrite_fn_base(
         Some(span.hi()),
         pos_before_where,
         option,
-    )?;
+    ).unwrap_or(context.snippet(where_clause.span).to_string());
     // If there are neither where-clause nor return type, we may be missing comments between
     // params and `{`.
     if where_clause_str.is_empty() {
@@ -2501,7 +2503,7 @@ fn rewrite_fn_base(
 
     force_new_line_for_brace |= last_line_contains_single_line_comment(&result);
     force_new_line_for_brace |= is_params_multi_lined && context.config.where_single_line();
-    Some((result, force_new_line_for_brace))
+    (result, force_new_line_for_brace)
 }
 
 /// Kind of spaces to put before `where`.
@@ -2641,7 +2643,7 @@ fn compute_budgets_for_params(
     ret_str_len: usize,
     fn_brace_style: FnBraceStyle,
     force_vertical_layout: bool,
-) -> Option<(usize, usize, Indent)> {
+) -> (usize, usize, Indent) {
     debug!(
         "compute_budgets_for_params {} {:?}, {}, {:?}",
         result.len(),
@@ -2678,7 +2680,7 @@ fn compute_budgets_for_params(
                 }
             };
 
-            return Some((one_line_budget, multi_line_budget, indent));
+            return (one_line_budget, multi_line_budget, indent);
         }
     }
 
@@ -2690,7 +2692,7 @@ fn compute_budgets_for_params(
         // Account for `)` and possibly ` {`.
         IndentStyle::Visual => new_indent.width() + if ret_str_len == 0 { 1 } else { 3 },
     };
-    Some((0, context.budget(used_space), new_indent))
+    (0, context.budget(used_space), new_indent)
 }
 
 fn newline_for_brace(config: &Config, where_clause: &ast::WhereClause) -> FnBraceStyle {
@@ -3125,15 +3127,14 @@ impl Rewrite for ast::ForeignItem {
         let span = mk_sp(self.span.lo(), self.span.hi() - BytePos(1));
 
         let item_str = match self.kind {
-            ast::ForeignItemKind::Fn(ref fn_sig, ref generics, _) => rewrite_fn_base(
+            ast::ForeignItemKind::Fn(ref fn_sig, ref generics, _) => Some(rewrite_fn_base(
                 context,
                 shape.indent,
                 self.ident,
                 &FnSig::new(&fn_sig.decl, generics, self.vis.clone()),
                 span,
                 FnBraceStyle::None,
-            )
-            .map(|(s, _)| format!("{};", s)),
+            ).0 + ";"),
             ast::ForeignItemKind::Static(ref ty, mutability) => {
                 // FIXME(#21): we're dropping potential comments in between the
                 // function kw here.

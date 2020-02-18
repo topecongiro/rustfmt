@@ -367,7 +367,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
             _ => unreachable!(),
         };
 
-        if let Some((fn_str, fn_brace_style)) = rewrite {
+        if let (fn_str, fn_brace_style) = rewrite {
             self.format_missing_with_indent(source!(self, s).lo());
 
             if let Some(rw) = self.single_line_fn(&fn_str, block, inner_attrs) {
@@ -626,7 +626,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
             ast::AssocItemKind::Fn(ref sig, Some(ref body)) => {
                 let inner_attrs = inner_attributes(&ii.attrs);
                 let fn_ctxt = visit::FnCtxt::Assoc(visit::AssocCtxt::Impl);
-                self.visit_fn(
+               self.visit_fn(
                     visit::FnKind::Fn(fn_ctxt, ii.ident, sig, &ii.vis, Some(body)),
                     &ii.generics,
                     &sig.decl,
