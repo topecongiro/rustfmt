@@ -18,8 +18,8 @@ use crate::shape::Shape;
 use crate::source_map::SpanUtils;
 use crate::spanned::Spanned;
 use crate::utils::{
-    colon_spaces, extra_offset, first_line_width, format_extern, format_mutability,
-    last_line_extendable, last_line_width, mk_sp, rewrite_ident,
+    colon_spaces, first_line_width, format_extern, format_mutability, last_line_extendable,
+    last_line_width, mk_sp, rewrite_ident,
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -35,13 +35,13 @@ pub(crate) fn rewrite_unqualified_path(
     path: &ast::Path,
     shape: Shape,
 ) -> Option<String> {
-    let result = if path.is_global() && path_context != PathContext::Import {
-        "::".to_owned()
-    } else {
-        String::new()
-    };
-
-    rewrite_path_segments(path_context, result, path.segments.iter(), context, shape)
+    rewrite_path_segments(
+        path_context,
+        String::new(),
+        path.segments.iter(),
+        context,
+        shape,
+    )
 }
 
 fn rewrite_qualified_path(
@@ -58,10 +58,6 @@ fn rewrite_qualified_path(
 
     if skip_count > 0 {
         result.push_str(" as ");
-        if path.is_global() && path_context != PathContext::Import {
-            result.push_str("::");
-        }
-
         // 3 = ">::".len()
         let shape = shape.sub_width(3)?;
 
@@ -100,35 +96,38 @@ pub(crate) fn rewrite_path(
     }
 }
 
-fn rewrite_path_segments<'a, I>(
+fn rewrite_path_segments<'a>(
     path_context: PathContext,
     mut buffer: String,
-    iter: I,
+    iter: impl Iterator<Item = &'a ast::PathSegment>,
     context: &RewriteContext<'_>,
     shape: Shape,
-) -> Option<String>
-where
-    I: Iterator<Item = &'a ast::PathSegment>,
-{
-    let mut first = true;
+) -> Option<String> {
+    let mut is_first = true;
     let shape = shape.visual_indent(0);
 
     for segment in iter {
-        // Indicates a global path, shouldn't be rendered.
-        if segment.ident.name == kw::PathRoot {
-            continue;
-        }
-        if first {
-            first = false;
-        } else {
+        if !is_first {
             buffer.push_str("::");
         }
+        is_first = false;
 
-        let extra_offset = extra_offset(&buffer, shape);
-        let new_shape = shape.shrink_left(extra_offset)?;
-        let segment_string = rewrite_segment(path_context, segment, context, new_shape)?;
-
-        buffer.push_str(&segment_string);
+        let path_segment = PathSegment {
+            segment,
+            path_context,
+        };
+        if !path_segment.is_parameterized() {
+            buffer += &path_segment.rewrite(context, shape)?;
+        } else {
+            // If a path segment is parameterized, we calculate the new shape for it
+            // so that `overflowing` works better.
+            let new_budget = shape.width.saturating_sub(last_line_width(&buffer));
+            let new_shape = Shape {
+                width: new_budget,
+                ..shape
+            };
+            buffer += &path_segment.rewrite(context, new_shape)?;
+        }
     }
 
     Some(buffer)
@@ -202,6 +201,46 @@ impl Rewrite for ast::AssocTyConstraintKind {
         match self {
             ast::AssocTyConstraintKind::Equality { ty } => ty.rewrite(context, shape),
             ast::AssocTyConstraintKind::Bound { bounds } => bounds.rewrite(context, shape),
+        }
+    }
+}
+
+struct PathSegment<'a> {
+    segment: &'a ast::PathSegment,
+    path_context: PathContext,
+}
+
+impl<'a> PathSegment<'a> {
+    fn is_parameterized(&self) -> bool {
+        self.segment
+            .args
+            .as_ref()
+            .map_or(false, |generics| match **generics {
+                ast::GenericArgs::AngleBracketed(ref data) => !data.args.is_empty(),
+                ast::GenericArgs::Parenthesized(..) => true,
+            })
+    }
+}
+impl<'a> crate::spanned::Spanned for PathSegment<'a> {
+    fn span(&self) -> Span {
+        if let Some(ref generics) = self.segment.args {
+            if !generics.span().is_dummy() {
+                mk_sp(self.segment.ident.span.lo(), generics.span().hi())
+            } else {
+                self.segment.ident.span
+            }
+        } else {
+            self.segment.ident.span
+        }
+    }
+}
+
+impl<'a> Rewrite for PathSegment<'a> {
+    fn rewrite(&self, context: &RewriteContext<'_>, shape: Shape) -> Option<String> {
+        if self.segment.ident.name == kw::PathRoot {
+            Some(String::new())
+        } else {
+            rewrite_segment(self.path_context, self.segment, context, shape)
         }
     }
 }
