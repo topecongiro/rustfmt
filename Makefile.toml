@@ -21,6 +21,16 @@ args = [
   "--bins",
 ]
 
+[tasks.build-wasm]
+command = "cargo"
+args = [
+    "build",
+    "--all-features",
+    "--lib",
+    "--target",
+    "wasm32-unknown-unknown",
+]
+
 [tasks.install]
 command = "cargo"
 args = [
